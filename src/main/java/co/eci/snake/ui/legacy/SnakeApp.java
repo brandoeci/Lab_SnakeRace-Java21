@@ -33,9 +33,10 @@ public final class SnakeApp extends JFrame {
       var dir = Direction.values()[i % Direction.values().length];
       snakes.add(Snake.of(x, y, dir));
     }
+    snakes.forEach(board::registerSnake); // ← registra serpientes para colisiones
 
     this.gamePanel = new GamePanel(board, () -> snakes);
-    this.actionButton = new JButton("Action");
+    this.actionButton = new JButton("Pausar");
 
     setLayout(new BorderLayout());
     add(gamePanel, BorderLayout.CENTER);
@@ -48,79 +49,55 @@ public final class SnakeApp extends JFrame {
     this.clock = new GameClock(60, () -> SwingUtilities.invokeLater(gamePanel::repaint));
 
     var exec = Executors.newVirtualThreadPerTaskExecutor();
-    snakes.forEach(s -> exec.submit(new SnakeRunner(s, board)));
+    snakes.forEach(s -> exec.submit(new SnakeRunner(s, board, clock)));
 
     actionButton.addActionListener((ActionEvent e) -> togglePause());
 
-    gamePanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("SPACE"), "pause");
+    gamePanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+            .put(KeyStroke.getKeyStroke("SPACE"), "pause");
     gamePanel.getActionMap().put("pause", new AbstractAction() {
-      @Override
-      public void actionPerformed(ActionEvent e) {
-        togglePause();
-      }
+      @Override public void actionPerformed(ActionEvent e) { togglePause(); }
     });
 
+    // ← flechas para serpiente 1
     var player = snakes.get(0);
     InputMap im = gamePanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
     ActionMap am = gamePanel.getActionMap();
-    im.put(KeyStroke.getKeyStroke("LEFT"), "left");
-    im.put(KeyStroke.getKeyStroke("RIGHT"), "right");
-    im.put(KeyStroke.getKeyStroke("UP"), "up");
-    im.put(KeyStroke.getKeyStroke("DOWN"), "down");
-    am.put("left", new AbstractAction() {
-      @Override
-      public void actionPerformed(ActionEvent e) {
-        player.turn(Direction.LEFT);
-      }
+    im.put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_LEFT,  0), "left");
+    im.put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_RIGHT, 0), "right");
+    im.put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_UP,    0), "up");
+    im.put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_DOWN,  0), "down");
+    am.put("left",  new AbstractAction() {
+      @Override public void actionPerformed(ActionEvent e) { player.turn(Direction.LEFT); }
     });
     am.put("right", new AbstractAction() {
-      @Override
-      public void actionPerformed(ActionEvent e) {
-        player.turn(Direction.RIGHT);
-      }
+      @Override public void actionPerformed(ActionEvent e) { player.turn(Direction.RIGHT); }
     });
-    am.put("up", new AbstractAction() {
-      @Override
-      public void actionPerformed(ActionEvent e) {
-        player.turn(Direction.UP);
-      }
+    am.put("up",    new AbstractAction() {
+      @Override public void actionPerformed(ActionEvent e) { player.turn(Direction.UP); }
     });
-    am.put("down", new AbstractAction() {
-      @Override
-      public void actionPerformed(ActionEvent e) {
-        player.turn(Direction.DOWN);
-      }
+    am.put("down",  new AbstractAction() {
+      @Override public void actionPerformed(ActionEvent e) { player.turn(Direction.DOWN); }
     });
 
+    // ← WASD para serpiente 2
     if (snakes.size() > 1) {
       var p2 = snakes.get(1);
-      im.put(KeyStroke.getKeyStroke('A'), "p2-left");
-      im.put(KeyStroke.getKeyStroke('D'), "p2-right");
-      im.put(KeyStroke.getKeyStroke('W'), "p2-up");
-      im.put(KeyStroke.getKeyStroke('S'), "p2-down");
-      am.put("p2-left", new AbstractAction() {
-        @Override
-        public void actionPerformed(ActionEvent e) {
-          p2.turn(Direction.LEFT);
-        }
+      im.put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_A, 0), "p2-left");
+      im.put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_D, 0), "p2-right");
+      im.put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_W, 0), "p2-up");
+      im.put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, 0), "p2-down");
+      am.put("p2-left",  new AbstractAction() {
+        @Override public void actionPerformed(ActionEvent e) { p2.turn(Direction.LEFT); }
       });
       am.put("p2-right", new AbstractAction() {
-        @Override
-        public void actionPerformed(ActionEvent e) {
-          p2.turn(Direction.RIGHT);
-        }
+        @Override public void actionPerformed(ActionEvent e) { p2.turn(Direction.RIGHT); }
       });
-      am.put("p2-up", new AbstractAction() {
-        @Override
-        public void actionPerformed(ActionEvent e) {
-          p2.turn(Direction.UP);
-        }
+      am.put("p2-up",    new AbstractAction() {
+        @Override public void actionPerformed(ActionEvent e) { p2.turn(Direction.UP); }
       });
-      am.put("p2-down", new AbstractAction() {
-        @Override
-        public void actionPerformed(ActionEvent e) {
-          p2.turn(Direction.DOWN);
-        }
+      am.put("p2-down",  new AbstractAction() {
+        @Override public void actionPerformed(ActionEvent e) { p2.turn(Direction.DOWN); }
       });
     }
 
@@ -129,13 +106,38 @@ public final class SnakeApp extends JFrame {
   }
 
   private void togglePause() {
-    if ("Action".equals(actionButton.getText())) {
-      actionButton.setText("Resume");
-      clock.pause();
-    } else {
-      actionButton.setText("Action");
+    if (clock.isPaused()) {
+      actionButton.setText("Pausar");
       clock.resume();
+    } else {
+      clock.pause();
+      actionButton.setText("Reanudar");
+      mostrarEstadisticas();
     }
+  }
+
+  private void mostrarEstadisticas() {
+    Snake masLarga = snakes.stream()
+            .filter(Snake::isAlive)
+            .max((a, b) -> a.length() - b.length())
+            .orElse(null);
+
+    Snake peor = snakes.stream()
+            .filter(s -> !s.isAlive())
+            .min((a, b) -> Long.compare(a.getDeathTime(), b.getDeathTime()))
+            .orElse(null);
+
+    String viva = masLarga != null
+            ? "Serpiente más larga (viva): longitud " + masLarga.length()
+            : "No hay serpientes vivas";
+
+    String muerta = peor != null
+            ? "Peor serpiente (primera en morir): longitud " + peor.length()
+            : "Ninguna serpiente ha muerto aún";
+
+    JOptionPane.showMessageDialog(
+            this, viva + "\n" + muerta, "Estadísticas", JOptionPane.INFORMATION_MESSAGE
+    );
   }
 
   public static final class GamePanel extends JPanel {
@@ -167,7 +169,6 @@ public final class SnakeApp extends JFrame {
       for (int y = 0; y <= board.height(); y++)
         g2.drawLine(0, y * cell, board.width() * cell, y * cell);
 
-      // Obstáculos
       g2.setColor(new Color(255, 102, 0));
       for (var p : board.obstacles()) {
         int x = p.x() * cell, y = p.y() * cell;
@@ -179,7 +180,6 @@ public final class SnakeApp extends JFrame {
         g2.setColor(new Color(255, 102, 0));
       }
 
-      // Ratones
       g2.setColor(Color.BLACK);
       for (var p : board.mice()) {
         int x = p.x() * cell, y = p.y() * cell;
@@ -189,7 +189,6 @@ public final class SnakeApp extends JFrame {
         g2.setColor(Color.BLACK);
       }
 
-      // Teleports (flechas rojas)
       Map<Position, Position> tp = board.teleports();
       g2.setColor(Color.RED);
       for (var entry : tp.entrySet()) {
@@ -200,7 +199,6 @@ public final class SnakeApp extends JFrame {
         g2.fillPolygon(xs, ys, xs.length);
       }
 
-      // Turbo (rayos)
       g2.setColor(Color.BLACK);
       for (var p : board.turbo()) {
         int x = p.x() * cell, y = p.y() * cell;
@@ -209,19 +207,19 @@ public final class SnakeApp extends JFrame {
         g2.fillPolygon(xs, ys, xs.length);
       }
 
-      // Serpientes
       var snakes = snakesSupplier.get();
       int idx = 0;
       for (Snake s : snakes) {
+        if (!s.isAlive()) continue; // ← no dibuja serpientes muertas
         var body = s.snapshot().toArray(new Position[0]);
         for (int i = 0; i < body.length; i++) {
           var p = body[i];
           Color base = (idx == 0) ? new Color(0, 170, 0) : new Color(0, 160, 180);
           int shade = Math.max(0, 40 - i * 4);
           g2.setColor(new Color(
-              Math.min(255, base.getRed() + shade),
-              Math.min(255, base.getGreen() + shade),
-              Math.min(255, base.getBlue() + shade)));
+                  Math.min(255, base.getRed() + shade),
+                  Math.min(255, base.getGreen() + shade),
+                  Math.min(255, base.getBlue() + shade)));
           g2.fillRect(p.x() * cell + 2, p.y() * cell + 2, cell - 4, cell - 4);
         }
         idx++;

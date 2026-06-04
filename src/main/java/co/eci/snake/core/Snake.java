@@ -7,6 +7,8 @@ public final class Snake {
   private final Deque<Position> body = new ArrayDeque<>();
   private volatile Direction direction;
   private int maxLength = 5;
+  private boolean alive = true;           // ← nueva
+  private long deathTime = -1;            // ← nueva: timestamp de muerte
 
   private Snake(Position start, Direction dir) {
     body.addFirst(start);
@@ -19,23 +21,38 @@ public final class Snake {
 
   public Direction direction() { return direction; }
 
-  public void turn(Direction dir) {
-    if ((direction == Direction.UP && dir == Direction.DOWN) ||
-        (direction == Direction.DOWN && dir == Direction.UP) ||
-        (direction == Direction.LEFT && dir == Direction.RIGHT) ||
-        (direction == Direction.RIGHT && dir == Direction.LEFT)) {
+  public synchronized void turn(Direction dir) {
+    if (!alive) return;                   // ← muerta no gira
+    if ((direction == Direction.UP    && dir == Direction.DOWN)  ||
+            (direction == Direction.DOWN  && dir == Direction.UP)    ||
+            (direction == Direction.LEFT  && dir == Direction.RIGHT) ||
+            (direction == Direction.RIGHT && dir == Direction.LEFT)) {
       return;
     }
     this.direction = dir;
   }
 
-  public Position head() { return body.peekFirst(); }
+  public synchronized Position head() { return body.peekFirst(); }
 
-  public Deque<Position> snapshot() { return new ArrayDeque<>(body); }
+  public synchronized Deque<Position> snapshot() {
+    return new ArrayDeque<>(body);
+  }
 
-  public void advance(Position newHead, boolean grow) {
+  public synchronized void advance(Position newHead, boolean grow) {
     body.addFirst(newHead);
     if (grow) maxLength++;
     while (body.size() > maxLength) body.removeLast();
   }
+
+  //registra la muerte con timestamp
+  public synchronized void die() {
+    if (alive) {
+      alive = false;
+      deathTime = System.currentTimeMillis();
+    }
+  }
+
+  public synchronized boolean isAlive()    { return alive; }
+  public synchronized long getDeathTime()  { return deathTime; }
+  public synchronized int length()         { return body.size(); }
 }
