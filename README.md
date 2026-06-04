@@ -150,10 +150,7 @@ Este laboratorio es una adaptación modernizada del ejercicio **SnakeRace** de A
 **Base construida por el Ing. Javier Toquica.**
 # Snake Race — ARSW Lab #2 (Java 21, Virtual Threads)
 
-**Escuela Colombiana de Ingeniería – Arquitecturas de Software**  
-**Estudiante:** Hildebrando Peña  
-**Repositorio:** https://github.com/brandoeci/Lab_SnakeRace-Java21.git  
-**Repositorio PrimeFinder:** https://github.com/ARSW-ECI/wait-notify-excercise
+**Escuela Colombiana de Ingeniería ARSW**  
 
 ---
 
