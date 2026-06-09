@@ -202,8 +202,8 @@ Usando `while` en vez de `if`:
 
 ```java
 public synchronized void checkPause() throws InterruptedException {
-    while (paused) {   // while, no if → evita lost wakeups
-        wait();        // bloquea sin busy-wait
+    while (paused) {   
+        wait();        
     }
 }
 ```
